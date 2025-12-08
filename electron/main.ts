@@ -6,7 +6,11 @@ import fs from 'node:fs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 process.env.APP_ROOT = path.join(__dirname, '..')
-const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+
+// Check for dev server - vite-plugin-electron sets this
+const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'] || 
+  (process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : undefined)
+
 const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
@@ -24,7 +28,7 @@ function createWindow() {
     minHeight: 700,
     icon: path.join(process.env.VITE_PUBLIC!, 'modeler.svg'),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
