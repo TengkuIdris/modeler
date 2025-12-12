@@ -1,56 +1,31 @@
-import { Settings, Minus, Square, X } from 'lucide-react'
 import { useAppStore } from '@stores/appStore'
 
 export function TitleBar() {
   const { setSettingsOpen } = useAppStore()
-  const isMac = window.electronAPI?.platform === 'darwin'
 
   return (
-    <div className="h-10 bg-surface-900 border-b border-surface-800 flex items-center justify-between drag-region">
-      {/* Left side - Mac traffic lights space or logo */}
-      <div className={`flex items-center ${isMac ? 'pl-20' : 'pl-4'}`}>
-        <div className="flex items-center gap-2 no-drag">
-          <div className="w-6 h-6 rounded-md bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center">
-            <span className="text-xs font-bold text-white">M</span>
-          </div>
-          <span className="font-display font-semibold text-surface-200 text-sm">
-            Modeler
-          </span>
+    <div className="h-12 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-4 drag-region">
+      {/* Left side - Logo */}
+      <div className="flex items-center gap-3 no-drag">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
+          <span className="text-sm font-bold text-white">M</span>
         </div>
-      </div>
-
-      {/* Center - optional title */}
-      <div className="absolute left-1/2 -translate-x-1/2">
-        <span className="text-surface-500 text-xs font-medium">
-          AI 3D Model Generator
+        <span className="font-bold text-white text-lg">
+          Modeler
+        </span>
+        <span className="text-gray-500 text-sm">
+          | AI 3D Generator
         </span>
       </div>
 
-      {/* Right side - Controls */}
-      <div className="flex items-center gap-1 pr-2 no-drag">
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="p-2 rounded-md hover:bg-surface-800 text-surface-400 hover:text-surface-200 transition-colors"
-          title="Settings"
-        >
-          <Settings size={16} />
-        </button>
-
-        {/* Windows controls */}
-        {!isMac && (
-          <div className="flex ml-2">
-            <button className="p-2 hover:bg-surface-800 text-surface-400 hover:text-surface-200 transition-colors">
-              <Minus size={14} />
-            </button>
-            <button className="p-2 hover:bg-surface-800 text-surface-400 hover:text-surface-200 transition-colors">
-              <Square size={12} />
-            </button>
-            <button className="p-2 hover:bg-red-600 text-surface-400 hover:text-white transition-colors">
-              <X size={14} />
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Right side - Just one settings button */}
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className="no-drag px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-300 hover:text-white transition-colors flex items-center gap-2"
+      >
+        <span>⚙️</span>
+        <span className="text-sm font-medium">Settings</span>
+      </button>
     </div>
   )
 }

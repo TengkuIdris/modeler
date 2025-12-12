@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Key, Brain, Cube, Check } from 'lucide-react'
+import { X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useSettingsStore } from '@stores/appStore'
 import type { LLMProvider, GenerationProvider } from '@shared/types'
@@ -7,17 +7,6 @@ import type { LLMProvider, GenerationProvider } from '@shared/types'
 interface SettingsModalProps {
   onClose: () => void
 }
-
-const LLM_PROVIDERS: { id: LLMProvider; name: string; description: string }[] = [
-  { id: 'claude', name: 'Claude (Anthropic)', description: 'Best for nuanced understanding' },
-  { id: 'azure', name: 'Azure OpenAI', description: 'GPT-4 via Azure' },
-  { id: 'vertex', name: 'Vertex AI', description: 'Google Gemini models' },
-]
-
-const GENERATION_PROVIDERS: { id: GenerationProvider; name: string; description: string }[] = [
-  { id: 'tripo3d', name: 'Tripo3D', description: 'High quality 3D generation' },
-  { id: 'meshy', name: 'Meshy', description: 'Fast 3D model creation' },
-]
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
   const {
@@ -43,7 +32,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [genApiKey, setGenApiKey] = useState(generationConfig.apiKey || '')
 
   const handleSave = () => {
-    // Save LLM config
     setLLMConfig({
       provider: llmProvider,
       claude: { apiKey: claudeKey, model: 'claude-sonnet-4-20250514' },
@@ -51,7 +39,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       vertex: { projectId: vertexProject, location: vertexLocation, modelId: 'gemini-1.5-pro' }
     })
 
-    // Save generation config
     setGenerationConfig({
       provider: generationProvider,
       apiKey: genApiKey
@@ -77,38 +64,36 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-surface-800">
-          <h2 className="font-display font-semibold text-surface-200">Settings</h2>
+          <h2 className="text-xl font-bold text-white">⚙️ Settings</h2>
           <button
             onClick={onClose}
-            className="p-1 text-surface-400 hover:text-surface-200 transition-colors"
+            className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700"
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-surface-800">
+        {/* TABS - Made more visible */}
+        <div className="flex border-b border-surface-800 bg-surface-800">
           <button
             onClick={() => setActiveTab('llm')}
-            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-6 py-4 text-sm font-bold transition-colors ${
               activeTab === 'llm'
-                ? 'text-accent-400 border-b-2 border-accent-400'
-                : 'text-surface-400 hover:text-surface-200'
+                ? 'bg-teal-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-surface-700'
             }`}
           >
-            <Brain size={16} />
-            LLM Provider
+            🧠 LLM PROVIDER (Claude/Azure/Vertex)
           </button>
           <button
             onClick={() => setActiveTab('generation')}
-            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-6 py-4 text-sm font-bold transition-colors ${
               activeTab === 'generation'
-                ? 'text-accent-400 border-b-2 border-accent-400'
-                : 'text-surface-400 hover:text-surface-200'
+                ? 'bg-teal-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-surface-700'
             }`}
           >
-            <Cube size={16} />
-            3D Generation
+            🧊 3D GENERATION (Tripo3D/Meshy)
           </button>
         </div>
 
@@ -116,108 +101,126 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="p-6 max-h-[60vh] overflow-y-auto">
           {activeTab === 'llm' && (
             <div className="space-y-6">
+              <div className="p-4 bg-blue-900/30 border border-blue-500/50 rounded-lg">
+                <p className="text-blue-300 text-sm">
+                  Configure your LLM provider for AI chat and prompt enhancement.
+                </p>
+              </div>
+
               {/* Provider Selection */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-surface-300">Select Provider</label>
+                <label className="text-sm font-bold text-white block">Select LLM Provider:</label>
                 <div className="grid grid-cols-3 gap-3">
-                  {LLM_PROVIDERS.map((provider) => (
+                  {(['claude', 'azure', 'vertex'] as LLMProvider[]).map((provider) => (
                     <button
-                      key={provider.id}
-                      onClick={() => setLLMProvider(provider.id)}
-                      className={`p-3 rounded-lg border text-left transition-all ${
-                        llmProvider === provider.id
-                          ? 'border-accent-500 bg-accent-600/10'
-                          : 'border-surface-700 hover:border-surface-600'
+                      key={provider}
+                      onClick={() => setLLMProvider(provider)}
+                      className={`p-4 rounded-lg border-2 text-center transition-all ${
+                        llmProvider === provider
+                          ? 'border-teal-500 bg-teal-600/20 text-white'
+                          : 'border-gray-600 text-gray-400 hover:border-gray-500'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-surface-200">{provider.name}</span>
-                        {llmProvider === provider.id && (
-                          <Check size={14} className="text-accent-400" />
-                        )}
+                      <div className="font-bold">
+                        {provider === 'claude' && '🟣 Claude'}
+                        {provider === 'azure' && '🔵 Azure'}
+                        {provider === 'vertex' && '🟢 Vertex'}
                       </div>
-                      <span className="text-xs text-surface-500">{provider.description}</span>
+                      <div className="text-xs mt-1 opacity-70">
+                        {provider === 'claude' && 'Anthropic'}
+                        {provider === 'azure' && 'OpenAI GPT-4'}
+                        {provider === 'vertex' && 'Google Gemini'}
+                      </div>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Provider-specific settings */}
+              {/* Claude Settings */}
               {llmProvider === 'claude' && (
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-surface-300 flex items-center gap-2">
-                    <Key size={14} />
-                    Anthropic API Key
+                <div className="space-y-3 p-4 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+                  <label className="text-sm font-bold text-white block">
+                    🔑 Anthropic API Key:
                   </label>
                   <input
                     type="password"
                     value={claudeKey}
                     onChange={(e) => setClaudeKey(e.target.value)}
-                    placeholder="sk-ant-..."
-                    className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm"
+                    placeholder="sk-ant-api03-..."
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder:text-gray-500"
                   />
+                  <p className="text-xs text-gray-400">
+                    Get your key from{' '}
+                    <a href="https://console.anthropic.com/" target="_blank" className="text-teal-400 underline">
+                      console.anthropic.com
+                    </a>
+                  </p>
                 </div>
               )}
 
+              {/* Azure Settings */}
               {llmProvider === 'azure' && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-surface-300">Azure Endpoint</label>
+                <div className="space-y-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                  <div>
+                    <label className="text-sm font-bold text-white block mb-2">Azure Endpoint:</label>
                     <input
                       type="text"
                       value={azureEndpoint}
                       onChange={(e) => setAzureEndpoint(e.target.value)}
                       placeholder="https://your-resource.openai.azure.com"
-                      className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-surface-300">API Key</label>
+                  <div>
+                    <label className="text-sm font-bold text-white block mb-2">🔑 API Key:</label>
                     <input
                       type="password"
                       value={azureKey}
                       onChange={(e) => setAzureKey(e.target.value)}
                       placeholder="Your Azure API key"
-                      className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-surface-300">Deployment Name</label>
+                  <div>
+                    <label className="text-sm font-bold text-white block mb-2">Deployment Name:</label>
                     <input
                       type="text"
                       value={azureDeployment}
                       onChange={(e) => setAzureDeployment(e.target.value)}
                       placeholder="gpt-4"
-                      className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white"
                     />
                   </div>
                 </div>
               )}
 
+              {/* Vertex Settings */}
               {llmProvider === 'vertex' && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-surface-300">Project ID</label>
+                <div className="space-y-4 p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
+                  <div>
+                    <label className="text-sm font-bold text-white block mb-2">Project ID:</label>
                     <input
                       type="text"
                       value={vertexProject}
                       onChange={(e) => setVertexProject(e.target.value)}
                       placeholder="your-gcp-project-id"
-                      className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-surface-300">Location</label>
+                  <div>
+                    <label className="text-sm font-bold text-white block mb-2">Location:</label>
                     <input
                       type="text"
                       value={vertexLocation}
                       onChange={(e) => setVertexLocation(e.target.value)}
                       placeholder="us-central1"
-                      className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white"
                     />
                   </div>
-                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-xs text-yellow-400">
-                    Note: Vertex AI requires proper GCP authentication. Set up a service account or use gcloud CLI.
+                  <div className="p-3 bg-yellow-900/30 border border-yellow-500/30 rounded-lg">
+                    <p className="text-yellow-400 text-xs">
+                      ⚠️ Vertex AI requires GCP authentication. Use gcloud CLI or service account.
+                    </p>
                   </div>
                 </div>
               )}
@@ -226,52 +229,58 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
           {activeTab === 'generation' && (
             <div className="space-y-6">
+              <div className="p-4 bg-teal-900/30 border border-teal-500/50 rounded-lg">
+                <p className="text-teal-300 text-sm">
+                  Configure your 3D generation provider to create models from text and images.
+                </p>
+              </div>
+
               {/* Provider Selection */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-surface-300">Select Provider</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {GENERATION_PROVIDERS.map((provider) => (
+                <label className="text-sm font-bold text-white block">Select 3D Generation Provider:</label>
+                <div className="grid grid-cols-2 gap-4">
+                  {(['tripo3d', 'meshy'] as GenerationProvider[]).map((provider) => (
                     <button
-                      key={provider.id}
-                      onClick={() => setGenerationProvider(provider.id)}
-                      className={`p-4 rounded-lg border text-left transition-all ${
-                        generationProvider === provider.id
-                          ? 'border-accent-500 bg-accent-600/10'
-                          : 'border-surface-700 hover:border-surface-600'
+                      key={provider}
+                      onClick={() => setGenerationProvider(provider)}
+                      className={`p-6 rounded-lg border-2 text-center transition-all ${
+                        generationProvider === provider
+                          ? 'border-teal-500 bg-teal-600/20 text-white'
+                          : 'border-gray-600 text-gray-400 hover:border-gray-500'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-surface-200">{provider.name}</span>
-                        {generationProvider === provider.id && (
-                          <Check size={14} className="text-accent-400" />
-                        )}
+                      <div className="text-2xl mb-2">
+                        {provider === 'tripo3d' ? '🔺' : '🔷'}
                       </div>
-                      <span className="text-xs text-surface-500">{provider.description}</span>
+                      <div className="font-bold text-lg">
+                        {provider === 'tripo3d' ? 'Tripo3D' : 'Meshy'}
+                      </div>
+                      <div className="text-xs mt-1 opacity-70">
+                        {provider === 'tripo3d' ? 'High quality models' : 'Fast generation'}
+                      </div>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* API Key */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-surface-300 flex items-center gap-2">
-                  <Key size={14} />
-                  API Key
+              <div className="space-y-3 p-4 bg-surface-800 border border-gray-600 rounded-lg">
+                <label className="text-sm font-bold text-white block">
+                  🔑 {generationProvider === 'tripo3d' ? 'Tripo3D' : 'Meshy'} API Key:
                 </label>
                 <input
                   type="password"
                   value={genApiKey}
                   onChange={(e) => setGenApiKey(e.target.value)}
-                  placeholder={`Enter your ${generationProvider === 'tripo3d' ? 'Tripo3D' : 'Meshy'} API key`}
-                  className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm"
+                  placeholder={`Enter your ${generationProvider} API key`}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder:text-gray-500"
                 />
-                <p className="text-xs text-surface-500">
-                  Get your API key from{' '}
+                <p className="text-xs text-gray-400">
+                  Get your key from{' '}
                   <a
                     href={generationProvider === 'tripo3d' ? 'https://tripo3d.ai' : 'https://meshy.ai'}
                     target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent-400 hover:underline"
+                    className="text-teal-400 underline"
                   >
                     {generationProvider === 'tripo3d' ? 'tripo3d.ai' : 'meshy.ai'}
                   </a>
@@ -282,22 +291,21 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-4 border-t border-surface-800">
+        <div className="flex justify-end gap-3 p-4 border-t border-surface-800 bg-surface-800">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-surface-400 hover:text-surface-200 transition-colors"
+            className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-accent-600 hover:bg-accent-500 rounded-lg text-sm font-medium text-white transition-colors"
+            className="px-6 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg font-bold text-white transition-colors"
           >
-            Save Settings
+            💾 Save Settings
           </button>
         </div>
       </motion.div>
     </motion.div>
   )
 }
-
