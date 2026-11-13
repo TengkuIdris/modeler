@@ -1,5 +1,7 @@
 # Kindle Fire home dashboard
 
+![Dashboard preview](preview.png)
+
 A single-file dashboard (`index.html`) with a clock, prayer times, the Hijri date and the weather. It is written in plain ES5 with old-WebKit-safe CSS, so it runs in the Silk browser on old Kindle Fire tablets.
 
 - **Prayer times** are calculated on the tablet itself and work offline. You can choose from 16 calculation methods and Standard or Hanafi Asr, and set per-prayer minute offsets to match your local mosque.
