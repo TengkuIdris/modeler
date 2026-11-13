@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Home Dashboard</title>
+<!--
+  Home dashboard for old tablets (Kindle Fire / Silk, Android 2.3+).
+  Deliberately written in ES5 with no flexbox-gap, grid, CSS variables or fetch,
+  so it runs on very old WebKit. Prayer times are computed on-device; only the
+  weather needs network access (Open-Meteo, no API key).
+-->
+<style>
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: #0d1117; color: #e6e6e6;
+  font-family: "Roboto", "Droid Sans", "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+#app { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 1.1em 1.4em; }
+.layout { display: table; width: 100%; height: 100%; table-layout: fixed; border-collapse: collapse; }
+.col { display: table-cell; vertical-align: top; }
+.col-left { width: 56%; padding-right: 1.4em; }
+.col-right { width: 44%; padding-left: 1.4em; border-left: 1px solid #222a35; }
+
+.portrait .layout, .portrait .col { display: block; width: auto; height: auto; }
+.portrait .col-left { padding-right: 0; }
+.portrait .col-right { padding-left: 0; border-left: 0; border-top: 1px solid #222a35; margin-top: 1em; padding-top: 1em; }
+
+#time { font-size: 7.2em; font-weight: 300; line-height: 1; letter-spacing: -0.02em; white-space: nowrap; }
+#time .sec { font-size: 0.32em; color: #6b7685; letter-spacing: 0; margin-left: 0.15em; }
+#time .ampm { font-size: 0.28em; color: #6b7685; letter-spacing: 0; margin-left: 0.2em; }
+#date { font-size: 1.55em; margin-top: 0.35em; color: #cfd6df; }
+#hijri { font-size: 1.15em; margin-top: 0.25em; color: #c9a45c; }
+
+.wx { margin-top: 1.3em; }
+.wx-now { display: table; width: 100%; }
+.wx-now > div { display: table-cell; vertical-align: middle; }
+#wxTemp { font-size: 4em; font-weight: 300; width: 1%; white-space: nowrap; padding-right: 0.35em; line-height: 1; }
+#wxDesc { font-size: 1.35em; color: #e6e6e6; }
+#wxMeta { font-size: 0.95em; color: #8b95a3; margin-top: 0.3em; }
+.fc { display: table; width: 100%; table-layout: fixed; margin-top: 1em; border-top: 1px solid #222a35; padding-top: 0.7em; }
+.fc-day { display: table-cell; text-align: center; }
+.fc-name { font-size: 0.9em; color: #8b95a3; }
+.fc-desc { font-size: 0.8em; color: #aab3bf; margin: 0.25em 0; height: 2.3em; overflow: hidden; }
+.fc-hi { font-size: 1.15em; }
+.fc-lo { font-size: 1.15em; color: #6b7685; }
+.fc-pop { font-size: 0.8em; color: #5fa8d3; }
+.muted { color: #6b7685; }
+
+#next { background: #161d27; border-radius: 0.4em; padding: 0.8em 1em; }
+#nextLabel { font-size: 1em; color: #8b95a3; text-transform: uppercase; letter-spacing: 0.08em; }
+#nextName { font-size: 2.1em; margin-top: 0.1em; }
+#nextIn { font-size: 1.35em; color: #c9a45c; margin-top: 0.1em; }
+
+.pt { width: 100%; border-collapse: collapse; margin-top: 0.7em; }
+.pt td { font-size: 1.45em; padding: 0.38em 0.5em; border-bottom: 1px solid #1b222c; }
+.pt td.t { text-align: right; font-variant-numeric: tabular-nums; }
+.pt tr.past td { color: #59626e; }
+.pt tr.minor td { font-size: 1.15em; color: #8b95a3; }
+.pt tr.past.minor td { color: #4a525d; }
+.pt tr.current td { background: #c9a45c; color: #11151b; }
+.pt tr.current td:first-child { border-radius: 0.25em 0 0 0.25em; }
+.pt tr.current td.t { border-radius: 0 0.25em 0.25em 0; }
+
+#foot { position: absolute; left: 1.4em; right: 1.4em; bottom: 0.7em; font-size: 0.85em; color: #4f5967; }
+#foot .r { float: right; }
+#gear { color: #8b95a3; padding: 0.6em 0 0.6em 1.2em; cursor: pointer; }
+
+#dim { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #000; opacity: 0.6; z-index: 5; }
+.night #dim { display: block; }
+
+/* Settings */
+#settings { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #0d1117; z-index: 10; overflow-y: scroll; -webkit-overflow-scrolling: touch; }
+.open #settings { display: block; }
+.sp { padding: 1em 1.4em 3em; max-width: 46em; }
+.sp h1 { font-size: 1.6em; font-weight: 400; margin: 0 0 0.6em; }
+.sp h2 { font-size: 1.05em; font-weight: 400; color: #c9a45c; margin: 1.4em 0 0.5em; text-transform: uppercase; letter-spacing: 0.08em; }
+.sp label { display: block; margin: 0.6em 0 0.25em; color: #aab3bf; }
+.sp input, .sp select, .sp button {
+  font-size: 1.05em; padding: 0.45em 0.55em; border: 1px solid #2c3644; border-radius: 0.25em;
+  background: #161d27; color: #e6e6e6; font-family: inherit;
+}
+.sp input[type=text], .sp input[type=number], .sp select { width: 100%; -webkit-box-sizing: border-box; box-sizing: border-box; }
+.sp button { background: #232c39; margin: 0.3em 0.3em 0.3em 0; }
+.sp button.primary { background: #c9a45c; color: #11151b; border-color: #c9a45c; }
+.row2 { display: table; width: 100%; table-layout: fixed; }
+.row2 > div { display: table-cell; padding-right: 0.6em; vertical-align: top; }
+.row2 > div:last-child { padding-right: 0; }
+.offs { display: table; width: 100%; table-layout: fixed; }
+.offs > div { display: table-cell; padding-right: 0.4em; }
+.offs input { text-align: center; }
+#cityResults div { padding: 0.6em 0.5em; border-bottom: 1px solid #222a35; cursor: pointer; }
+#msg { color: #c9a45c; margin-top: 0.5em; min-height: 1.2em; }
+.hint { font-size: 0.85em; color: #6b7685; margin-top: 0.3em; }
+#bookmark { word-break: break-all; font-size: 0.85em; color: #5fa8d3; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="layout">
+    <div class="col col-left">
+      <div id="time">--:--</div>
+      <div id="date">&nbsp;</div>
+      <div id="hijri">&nbsp;</div>
+      <div class="wx">
+        <div class="wx-now">
+          <div id="wxTemp">--&deg;</div>
+          <div>
+            <div id="wxDesc" class="muted">Loading weather&hellip;</div>
+            <div id="wxMeta">&nbsp;</div>
+          </div>
+        </div>
+        <div class="fc" id="fc"></div>
+      </div>
+    </div>
+    <div class="col col-right">
+      <div id="next">
+        <div id="nextLabel">Next prayer</div>
+        <div id="nextName">&nbsp;</div>
+        <div id="nextIn">&nbsp;</div>
+      </div>
+      <table class="pt" id="pt"></table>
+    </div>
+  </div>
+  <div id="foot"><span id="gear" class="r">&#9881; Settings</span><span id="place"></span> <span id="wxUpdated"></span></div>
+</div>
+<div id="dim"></div>
+
+<div id="settings"><div class="sp">
+  <h1>Settings</h1>
+
+  <h2>Location</h2>
+  <label for="citySearch">Search city</label>
+  <div class="row2"><div><input type="text" id="citySearch" placeholder="e.g. Kuala Lumpur"></div><div style="width:7em"><button id="cityBtn" style="width:100%">Search</button></div></div>
+  <div id="cityResults"></div>
+  <button id="geoBtn">Use device location</button>
+  <div class="row2">
+    <div><label for="lat">Latitude</label><input type="number" step="any" id="lat"></div>
+    <div><label for="lon">Longitude</label><input type="number" step="any" id="lon"></div>
+  </div>
+  <label for="name">Place name (shown on screen)</label>
+  <input type="text" id="name">
+  <div class="hint">Prayer times use this tablet's clock and time zone, so set the tablet's time zone to match this location.</div>
+
+  <h2>Prayer times</h2>
+  <label for="method">Calculation method</label>
+  <select id="method"></select>
+  <div class="row2">
+    <div><label for="asr">Asr</label><select id="asr"><option value="1">Standard (Shafi'i, Maliki, Hanbali)</option><option value="2">Hanafi</option></select></div>
+    <div><label for="hijriAdj">Hijri date adjust (days)</label><input type="number" id="hijriAdj"></div>
+  </div>
+  <label>Minute offsets (to match your local mosque)</label>
+  <div class="offs">
+    <div><div class="hint">Fajr</div><input type="number" id="o_fajr"></div>
+    <div><div class="hint">Sunrise</div><input type="number" id="o_sunrise"></div>
+    <div><div class="hint">Dhuhr</div><input type="number" id="o_dhuhr"></div>
+    <div><div class="hint">Asr</div><input type="number" id="o_asr"></div>
+    <div><div class="hint">Maghrib</div><input type="number" id="o_maghrib"></div>
+    <div><div class="hint">Isha</div><input type="number" id="o_isha"></div>
+  </div>
+
+  <h2>Display</h2>
+  <div class="row2">
+    <div><label for="clock">Clock</label><select id="clock"><option value="24">24-hour</option><option value="12">12-hour</option></select></div>
+    <div><label for="unit">Temperature</label><select id="unit"><option value="celsius">&deg;C</option><option value="fahrenheit">&deg;F</option></select></div>
+    <div><label for="dimNight">Dim screen at night</label><select id="dimNight"><option value="0">Off</option><option value="1">Isha + 1h until Fajr</option></select></div>
+  </div>
+
+  <div style="margin-top:1.4em">
+    <button class="primary" id="saveBtn">Save</button>
+    <button id="cancelBtn">Cancel</button>
+  </div>
+  <div id="msg"></div>
+  <h2>Bookmark</h2>
+  <div class="hint">If settings don't stick on this browser, bookmark this link instead. It holds the saved settings.</div>
+  <div id="bookmark"></div>
+</div></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- helpers ---------- */
+  function $(id) { return document.getElementById(id); }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function setText(id, s) { var el = $(id); if (el) el.innerHTML = s; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function store(k, v) { try { if (v === undefined) return window.localStorage.getItem(k); window.localStorage.setItem(k, v); } catch (e) { return null; } }
+  function getJSON(url, ok, fail) {
+    var x = new XMLHttpRequest();
+    x.open('GET', url, true);
+    x.timeout = 20000;
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      if (x.status === 200) {
+        var d; try { d = JSON.parse(x.responseText); } catch (e) { if (fail) fail('bad response'); return; }
+        ok(d);
+      } else if (fail) { fail('HTTP ' + x.status); }
+    };
+    try { x.send(); } catch (e) { if (fail) fail(e.message); }
+  }
+
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var HMONTHS = ['Muharram', 'Safar', "Rabi' al-Awwal", "Rabi' al-Thani", 'Jumada al-Awwal', 'Jumada al-Thani', 'Rajab', "Sha'ban", 'Ramadan', 'Shawwal', "Dhu al-Qi'dah", 'Dhu al-Hijjah'];
+
+  /* ---------- prayer time calculation (standard astronomical method) ---------- */
+  var METHODS = {
+    MWL:      { name: 'Muslim World League', fajr: 18, isha: 17 },
+    ISNA:     { name: 'ISNA (North America)', fajr: 15, isha: 15 },
+    Egypt:    { name: 'Egyptian General Authority', fajr: 19.5, isha: 17.5 },
+    Makkah:   { name: 'Umm al-Qura, Makkah', fajr: 18.5, ishaMin: 90 },
+    Karachi:  { name: 'University of Islamic Sciences, Karachi', fajr: 18, isha: 18 },
+    Tehran:   { name: 'Institute of Geophysics, Tehran', fajr: 17.7, isha: 14, maghrib: 4.5 },
+    JAKIM:    { name: 'JAKIM (Malaysia)', fajr: 20, isha: 18 },
+    MUIS:     { name: 'MUIS (Singapore)', fajr: 20, isha: 18 },
+    Kemenag:  { name: 'Kemenag (Indonesia)', fajr: 20, isha: 18 },
+    Diyanet:  { name: 'Diyanet (Turkey)', fajr: 18, isha: 17 },
+    Gulf:     { name: 'Gulf Region', fajr: 19.5, ishaMin: 90 },
+    Kuwait:   { name: 'Kuwait', fajr: 18, isha: 17.5 },
+    Qatar:    { name: 'Qatar', fajr: 18, ishaMin: 90 },
+    Dubai:    { name: 'Dubai', fajr: 18.2, isha: 18.2 },
+    France:   { name: 'UOIF (France)', fajr: 12, isha: 12 },
+    Russia:   { name: 'Spiritual Administration of Muslims of Russia', fajr: 16, isha: 15 }
+  };
+
+  var PT = (function () {
+    var D2R = Math.PI / 180;
+    function sin(d) { return Math.sin(d * D2R); }
+    function cos(d) { return Math.cos(d * D2R); }
+    function tan(d) { return Math.tan(d * D2R); }
+    function asin(x) { return Math.asin(x) / D2R; }
+    function acos(x) { return Math.acos(x) / D2R; }
+    function atan2(y, x) { return Math.atan2(y, x) / D2R; }
+    function acot(x) { return Math.atan(1 / x) / D2R; }
+    function fix(a, b) { a = a - b * Math.floor(a / b); return a < 0 ? a + b : a; }
+
+    function julian(y, m, d) {
+      if (m <= 2) { y -= 1; m += 12; }
+      var A = Math.floor(y / 100), B = 2 - A + Math.floor(A / 4);
+      return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+    }
+    function sunPos(jd) {
+      var D = jd - 2451545.0;
+      var g = fix(357.529 + 0.98560028 * D, 360);
+      var q = fix(280.459 + 0.98564736 * D, 360);
+      var L = fix(q + 1.915 * sin(g) + 0.020 * sin(2 * g), 360);
+      var e = 23.439 - 0.00000036 * D;
+      var RA = atan2(cos(e) * sin(L), cos(L)) / 15;
+      return { decl: asin(sin(e) * sin(L)), eqt: q / 15 - fix(RA, 24) };
+    }
+
+    // Returns times in hours (local clock) for the given calendar date.
+    function compute(y, m, d, lat, lng, tz, method, asrFactor) {
+      var jd = julian(y, m, d) - lng / (15 * 24);
+      function midDay(h) { return fix(12 - sunPos(jd + h / 24).eqt, 24); }
+      function angleTime(angle, h, ccw) {
+        var decl = sunPos(jd + h / 24).decl;
+        var t = acos((-sin(angle) - sin(decl) * sin(lat)) / (cos(decl) * cos(lat))) / 15;
+        return midDay(h) + (ccw ? -t : t);
+      }
+      function asrTime(f, h) {
+        var decl = sunPos(jd + h / 24).decl;
+        return angleTime(-acot(f + tan(Math.abs(lat - decl))), h);
+      }
+      var t = { fajr: 5, sunrise: 6, dhuhr: 12, asr: 13, sunset: 18, maghrib: 18, isha: 18 };
+      for (var i = 0; i < 2; i++) {
+        t = {
+          fajr: angleTime(method.fajr, t.fajr, true),
+          sunrise: angleTime(0.833, t.sunrise, true),
+          dhuhr: midDay(t.dhuhr),
+          asr: asrTime(asrFactor, t.asr),
+          sunset: angleTime(0.833, t.sunset),
+          maghrib: angleTime(method.maghrib || 0.833, t.maghrib),
+          isha: method.ishaMin ? 18 : angleTime(method.isha, t.isha)
+        };
+      }
+      var adj = tz - lng / 15;
+      for (var k in t) if (t.hasOwnProperty(k)) t[k] += adj;
+      if (method.ishaMin) t.isha = t.maghrib + method.ishaMin / 60;
+
+      // High-latitude fallback (angle-based): keeps Fajr/Isha sane when the sun never reaches the angle.
+      var night = fix(t.sunrise - t.sunset, 24);
+      function safe(time, base, angle, ccw) {
+        var portion = night * angle / 60;
+        var diff = ccw ? fix(base - time, 24) : fix(time - base, 24);
+        if (isNaN(time) || diff > portion) return base + (ccw ? -portion : portion);
+        return time;
+      }
+      t.fajr = safe(t.fajr, t.sunrise, method.fajr, true);
+      if (!method.ishaMin) t.isha = safe(t.isha, t.sunset, method.isha, false);
+      if (method.maghrib) t.maghrib = safe(t.maghrib, t.sunset, method.maghrib, false);
+      return t;
+    }
+    return { compute: compute };
+  })();
+
+  /* ---------- Hijri (tabular / Kuwaiti algorithm, ±1 day; use the adjust setting) ---------- */
+  function hijri(date) {
+    var day = date.getDate(), m = date.getMonth() + 1, y = date.getFullYear();
+    if (m < 3) { y -= 1; m += 12; }
+    var a = Math.floor(y / 100), b = 2 - a + Math.floor(a / 4);
+    var jd = Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + day + b - 1524;
+    var iyear = 10631 / 30, shift1 = 8.01 / 60;
+    var z = jd - 1948084;
+    var cyc = Math.floor(z / 10631);
+    z = z - 10631 * cyc;
+    var j = Math.floor((z - shift1) / iyear);
+    var iy = 30 * cyc + j;
+    z = z - Math.floor(j * iyear + shift1);
+    var im = Math.floor((z + 28.5001) / 29.5);
+    if (im === 13) im = 12;
+    var id = z - Math.floor(29.5001 * im - 29);
+    return { d: id, m: im - 1, y: iy };
+  }
+
+  /* ---------- settings ---------- */
+  var DEFAULTS = {
+    lat: '', lon: '', name: '', method: 'MWL', asr: '1', clock: '24', unit: 'celsius',
+    hijriAdj: '0', dimNight: '0',
+    o_fajr: '0', o_sunrise: '0', o_dhuhr: '0', o_asr: '0', o_maghrib: '0', o_isha: '0'
+  };
+  var cfg = {};
+  function loadCfg() {
+    var k, saved = null;
+    try { saved = JSON.parse(store('dash.cfg') || 'null'); } catch (e) {}
+    for (k in DEFAULTS) cfg[k] = DEFAULTS[k];
+    if (saved) for (k in saved) if (DEFAULTS.hasOwnProperty(k)) cfg[k] = String(saved[k]);
+    // URL parameters override saved settings (handy as a bookmark).
+    var q = window.location.search.replace(/^\?/, '').split('&');
+    for (var i = 0; i < q.length; i++) {
+      var p = q[i].split('=');
+      if (p.length === 2 && DEFAULTS.hasOwnProperty(p[0])) cfg[p[0]] = decodeURIComponent(p[1].replace(/\+/g, ' '));
+    }
+  }
+  function hasLocation() { return cfg.lat !== '' && cfg.lon !== '' && !isNaN(parseFloat(cfg.lat)) && !isNaN(parseFloat(cfg.lon)); }
+  function bookmarkUrl() {
+    var parts = [];
+    for (var k in DEFAULTS) if (cfg[k] !== DEFAULTS[k]) parts.push(k + '=' + encodeURIComponent(cfg[k]));
+    return window.location.href.split('?')[0].split('#')[0] + (parts.length ? '?' + parts.join('&') : '');
+  }
+
+  /* ---------- prayer schedule ---------- */
+  var PRAYERS = [
+    { key: 'fajr', label: 'Fajr' },
+    { key: 'sunrise', label: 'Sunrise', minor: true },
+    { key: 'dhuhr', label: 'Dhuhr' },
+    { key: 'asr', label: 'Asr' },
+    { key: 'maghrib', label: 'Maghrib' },
+    { key: 'isha', label: 'Isha' }
+  ];
+  var dayCache = {};
+  function dayTimes(date) {
+    var y = date.getFullYear(), m = date.getMonth(), d = date.getDate();
+    var key = y + '-' + m + '-' + d;
+    if (dayCache[key]) return dayCache[key];
+    var noon = new Date(y, m, d, 12, 0, 0);
+    var tz = -noon.getTimezoneOffset() / 60;
+    var method = METHODS[cfg.method] || METHODS.MWL;
+    var t = PT.compute(y, m + 1, d, parseFloat(cfg.lat), parseFloat(cfg.lon), tz, method, parseInt(cfg.asr, 10) || 1);
+    var out = [];
+    for (var i = 0; i < PRAYERS.length; i++) {
+      var p = PRAYERS[i];
+      var mins = Math.round(t[p.key] * 60) + (parseInt(cfg['o_' + p.key], 10) || 0);
+      var label = (p.key === 'dhuhr' && date.getDay() === 5) ? "Jumu'ah" : p.label;
+      out.push({ key: p.key, label: label, minor: !!p.minor, at: new Date(y, m, d, 0, mins, 0) });
+    }
+    dayCache[key] = out;
+    return out;
+  }
+  function addDays(date, n) { return new Date(date.getFullYear(), date.getMonth(), date.getDate() + n, 12); }
+
+  function fmtTime(date, withAmPm) {
+    var h = date.getHours(), m = date.getMinutes();
+    if (cfg.clock === '12') {
+      var ap = h < 12 ? 'AM' : 'PM';
+      h = h % 12; if (h === 0) h = 12;
+      return h + ':' + pad(m) + (withAmPm ? ' ' + ap : '');
+    }
+    return pad(h) + ':' + pad(m);
+  }
+  function fmtDuration(ms) {
+    var mins = Math.ceil(ms / 60000);
+    var h = Math.floor(mins / 60), m = mins % 60;
+    if (h === 0) return m + ' min';
+    return h + 'h ' + pad(m) + 'm';
+  }
+
+  /* ---------- rendering ---------- */
+  var lastPtKey = '';
+  function render() {
+    var now = new Date();
+    var h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+
+    // Clock
+    var timeHtml;
+    if (cfg.clock === '12') {
+      var h12 = h % 12; if (h12 === 0) h12 = 12;
+      timeHtml = h12 + ':' + pad(m) + '<span class="ampm">' + (h < 12 ? 'AM' : 'PM') + '</span>';
+    } else {
+      timeHtml = pad(h) + ':' + pad(m) + '<span class="sec">' + pad(s) + '</span>';
+    }
+    setText('time', timeHtml);
+    setText('date', DAYS[now.getDay()] + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + ' ' + now.getFullYear());
+
+    if (!hasLocation()) {
+      setText('hijri', '&nbsp;');
+      setText('nextName', 'Set location');
+      setText('nextIn', 'Tap Settings to begin');
+      setText('pt', '');
+      return;
+    }
+
+    var today = dayTimes(now);
+    var maghrib = today[4].at;
+
+    // Hijri date rolls over at Maghrib.
+    var hd = addDays(now, (parseInt(cfg.hijriAdj, 10) || 0) + (now >= maghrib ? 1 : 0));
+    var hj = hijri(hd);
+    setText('hijri', hj.d + ' ' + HMONTHS[hj.m] + ' ' + hj.y + ' AH');
+
+    // Current and next prayer
+    var cur = -1, next = null, i;
+    for (i = 0; i < today.length; i++) {
+      if (now >= today[i].at) cur = i;
+    }
+    for (i = 0; i < today.length; i++) {
+      if (!today[i].minor && today[i].at > now) { next = today[i]; break; }
+    }
+    if (!next) next = dayTimes(addDays(now, 1))[0];
+    if (cur === -1) cur = 5; // before Fajr: still in last night's Isha
+    if (today[cur].minor) cur = -1; // between sunrise and Dhuhr: no current prayer
+
+    setText('nextLabel', 'Next prayer');
+    setText('nextName', esc(next.label) + ' <span class="muted" style="font-size:.6em">' + fmtTime(next.at, true) + '</span>');
+    setText('nextIn', 'in ' + fmtDuration(next.at - now));
+
+    var ptKey = now.toDateString() + '|' + cur + '|' + next.key;
+    if (ptKey !== lastPtKey) {
+      lastPtKey = ptKey;
+      var rows = '';
+      for (i = 0; i < today.length; i++) {
+        var p = today[i];
+        var cls = [];
+        if (p.minor) cls.push('minor');
+        if (i === cur) cls.push('current');
+        else if (p.at <= now) cls.push('past');
+        rows += '<tr class="' + cls.join(' ') + '"><td>' + esc(p.label) + '</td><td class="t">' + fmtTime(p.at, true) + '</td></tr>';
+      }
+      $('pt').innerHTML = rows;
+    }
+
+    // Night dimming: from Isha + 1h until Fajr.
+    var night = false;
+    if (cfg.dimNight === '1') {
+      var ishaPlus = new Date(today[5].at.getTime() + 3600000);
+      night = now >= ishaPlus || now < today[0].at;
+    }
+    var bodyCls = (night ? 'night ' : '') + (document.body.className.indexOf('open') >= 0 ? 'open ' : '') + orientationClass;
+    if (document.body.className !== bodyCls) document.body.className = bodyCls;
+  }
+
+  /* ---------- weather (Open-Meteo, no key) ---------- */
+  var WX = {
+    0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast', 45: 'Fog', 48: 'Freezing fog',
+    51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle', 56: 'Freezing drizzle', 57: 'Freezing drizzle',
+    61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 66: 'Freezing rain', 67: 'Freezing rain',
+    71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains',
+    80: 'Light showers', 81: 'Showers', 82: 'Heavy showers', 85: 'Snow showers', 86: 'Heavy snow showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm, hail', 99: 'Thunderstorm, hail'
+  };
+  function wxText(code) { return WX[code] || '—'; }
+  function renderWeather(d, fetchedAt) {
+    if (!d || !d.current) return;
+    var c = d.current, u = d.current_units || {};
+    setText('wxTemp', Math.round(c.temperature_2m) + '&deg;');
+    setText('wxDesc', esc(wxText(c.weather_code)));
+    setText('wxMeta', 'Feels ' + Math.round(c.apparent_temperature) + '&deg; &middot; Humidity ' + Math.round(c.relative_humidity_2m) +
+      '% &middot; Wind ' + Math.round(c.wind_speed_10m) + ' ' + esc(u.wind_speed_10m || 'km/h'));
+    var dd = d.daily, html = '';
+    if (dd && dd.time) {
+      for (var i = 0; i < dd.time.length && i < 5; i++) {
+        var p = dd.time[i].split('-');
+        var dt = new Date(+p[0], +p[1] - 1, +p[2]);
+        var name = i === 0 ? 'Today' : DAYS[dt.getDay()].substr(0, 3);
+        var pop = dd.precipitation_probability_max ? dd.precipitation_probability_max[i] : null;
+        html += '<div class="fc-day"><div class="fc-name">' + name + '</div>' +
+          '<div class="fc-desc">' + esc(wxText(dd.weather_code[i])) + '</div>' +
+          '<div><span class="fc-hi">' + Math.round(dd.temperature_2m_max[i]) + '&deg;</span> ' +
+          '<span class="fc-lo">' + Math.round(dd.temperature_2m_min[i]) + '&deg;</span></div>' +
+          '<div class="fc-pop">' + (pop !== null && pop !== undefined && pop >= 20 ? pop + '% rain' : '&nbsp;') + '</div></div>';
+      }
+    }
+    $('fc').innerHTML = html;
+    var f = new Date(fetchedAt);
+    setText('wxUpdated', '&middot; weather ' + fmtTime(f, true));
+  }
+  function loadWeather() {
+    if (!hasLocation()) return;
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + parseFloat(cfg.lat) + '&longitude=' + parseFloat(cfg.lon) +
+      '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m' +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
+      '&timezone=auto&forecast_days=5&temperature_unit=' + (cfg.unit === 'fahrenheit' ? 'fahrenheit' : 'celsius') +
+      '&wind_speed_unit=' + (cfg.unit === 'fahrenheit' ? 'mph' : 'kmh');
+    getJSON(url, function (d) {
+      var at = new Date().getTime();
+      store('dash.wx', JSON.stringify({ url: url, at: at, d: d }));
+      renderWeather(d, at);
+    }, function (err) {
+      var cached = null;
+      try { cached = JSON.parse(store('dash.wx') || 'null'); } catch (e) {}
+      if (cached && cached.url === url) renderWeather(cached.d, cached.at);
+      else { setText('wxDesc', 'Weather unavailable'); setText('wxMeta', esc(err)); }
+    });
+  }
+
+  /* ---------- layout scaling ---------- */
+  var orientationClass = '';
+  function resize() {
+    var w = window.innerWidth || document.documentElement.clientWidth;
+    var h = window.innerHeight || document.documentElement.clientHeight;
+    var portrait = h > w;
+    orientationClass = portrait ? 'portrait' : '';
+    // Base design: 1024x600 landscape at 16px.
+    var scale = portrait ? Math.min(w / 600, h / 1024) : Math.min(w / 1024, h / 600);
+    document.body.style.fontSize = Math.max(10, Math.round(16 * scale * 10) / 10) + 'px';
+    lastPtKey = '';
+    render();
+  }
+
+  /* ---------- settings UI ---------- */
+  function fillForm() {
+    var sel = $('method'), html = '';
+    for (var k in METHODS) html += '<option value="' + k + '">' + esc(METHODS[k].name) + '</option>';
+    sel.innerHTML = html;
+    for (var f in DEFAULTS) { var el = $(f); if (el) el.value = cfg[f]; }
+    $('bookmark').innerHTML = esc(bookmarkUrl());
+    setText('msg', '');
+    setText('cityResults', '');
+  }
+  function openSettings() { fillForm(); document.body.className += ' open'; }
+  function closeSettings() { document.body.className = document.body.className.replace(/\s*open/g, ''); }
+  function saveSettings() {
+    var next = {};
+    for (var f in DEFAULTS) { var el = $(f); next[f] = el ? String(el.value).replace(/^\s+|\s+$/g, '') : cfg[f]; }
+    if (next.lat === '' || next.lon === '' || isNaN(parseFloat(next.lat)) || isNaN(parseFloat(next.lon)) ||
+        Math.abs(parseFloat(next.lat)) > 90 || Math.abs(parseFloat(next.lon)) > 180) {
+      setText('msg', 'Enter a valid latitude and longitude (or search for a city).');
+      return;
+    }
+    cfg = next;
+    store('dash.cfg', JSON.stringify(cfg));
+    dayCache = {}; lastPtKey = '';
+    $('bookmark').innerHTML = esc(bookmarkUrl());
+    setText('place', esc(cfg.name || (parseFloat(cfg.lat).toFixed(3) + ', ' + parseFloat(cfg.lon).toFixed(3))));
+    closeSettings();
+    render();
+    loadWeather();
+  }
+  var cityList = [];
+  function searchCity() {
+    var q = $('citySearch').value.replace(/^\s+|\s+$/g, '');
+    if (!q) return;
+    setText('cityResults', '<div class="muted">Searching&hellip;</div>');
+    getJSON('https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name=' + encodeURIComponent(q), function (d) {
+      cityList = d.results || [];
+      if (!cityList.length) { setText('cityResults', '<div class="muted">No matches</div>'); return; }
+      var html = '';
+      for (var i = 0; i < cityList.length; i++) {
+        var r = cityList[i];
+        html += '<div data-i="' + i + '">' + esc(r.name) + '<span class="muted">' + esc((r.admin1 ? ', ' + r.admin1 : '') + (r.country ? ', ' + r.country : '')) + '</span></div>';
+      }
+      $('cityResults').innerHTML = html;
+    }, function (err) { setText('cityResults', '<div class="muted">Search failed (' + esc(err) + '). Enter coordinates manually.</div>'); });
+  }
+  function pickCity(e) {
+    var t = e.target || e.srcElement;
+    while (t && t.getAttribute && t.getAttribute('data-i') === null) t = t.parentNode;
+    if (!t || !t.getAttribute) return;
+    var r = cityList[+t.getAttribute('data-i')];
+    if (!r) return;
+    $('lat').value = r.latitude.toFixed(4);
+    $('lon').value = r.longitude.toFixed(4);
+    $('name').value = r.name;
+    setText('cityResults', '');
+    setText('msg', 'Selected ' + esc(r.name) + (r.timezone ? ' (' + esc(r.timezone) + ')' : '') + '. Tap Save.');
+  }
+  function useGeo() {
+    if (!navigator.geolocation) { setText('msg', 'Location not available on this device.'); return; }
+    setText('msg', 'Getting location&hellip;');
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      $('lat').value = pos.coords.latitude.toFixed(4);
+      $('lon').value = pos.coords.longitude.toFixed(4);
+      setText('msg', 'Location found. Tap Save.');
+    }, function (err) { setText('msg', 'Could not get location (' + esc(err.message || err.code) + '). Search for a city instead.'); },
+    { timeout: 20000, maximumAge: 600000 });
+  }
+
+  /* ---------- boot ---------- */
+  loadCfg();
+  $('gear').onclick = openSettings;
+  $('saveBtn').onclick = saveSettings;
+  $('cancelBtn').onclick = function () { if (hasLocation()) closeSettings(); else setText('msg', 'Set a location first.'); };
+  $('cityBtn').onclick = searchCity;
+  $('citySearch').onkeydown = function (e) { if ((e || window.event).keyCode === 13) searchCity(); };
+  $('cityResults').onclick = pickCity;
+  $('geoBtn').onclick = useGeo;
+  window.onresize = resize;
+  window.onorientationchange = resize;
+
+  setText('place', hasLocation() ? esc(cfg.name || (parseFloat(cfg.lat).toFixed(3) + ', ' + parseFloat(cfg.lon).toFixed(3))) : '');
+  resize();
+  if (!hasLocation()) openSettings();
+
+  // Show cached weather immediately, then refresh.
+  try { var c = JSON.parse(store('dash.wx') || 'null'); if (c && c.d) renderWeather(c.d, c.at); } catch (e) {}
+  loadWeather();
+
+  setInterval(render, 1000);
+  setInterval(loadWeather, 15 * 60 * 1000);
+  // Daily reload at ~03:00 to pick up any updates and clear long-running state.
+  setInterval(function () {
+    var n = new Date();
+    if (n.getHours() === 3 && n.getMinutes() === 0 && document.body.className.indexOf('open') < 0) window.location.reload();
+  }, 60000);
+  // Recompute on date change.
+  var lastDay = new Date().getDate();
+  setInterval(function () { var d = new Date().getDate(); if (d !== lastDay) { lastDay = d; dayCache = {}; lastPtKey = ''; } }, 30000);
+})();
+</script>
+</body>
+</html>
